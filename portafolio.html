@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portafolio Académico Profesional</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="logo-container">
+      <img class="logo" src="assets/logo-universidad.png" alt="Logo de la universidad" />
+      <div class="titles">
+        <h1 id="titulo-universidad">Portafolio Académico</h1>
+        <p id="subtitulo-universidad">Universidad</p>
+      </div>
+    </div>
+    <div class="user-box">
+      <button class="login-btn-corner" onclick="alert('Módulo de inicio de sesión próximamente disponible.')">👤 Iniciar Sesión</button>
+      <img class="avatar" src="assets/foto-estudiante.png" alt="Foto del estudiante" />
+      <div class="name">
+        <strong id="nombre-estudiante">Nayeli Quispe Tica</strong>
+        <span id="codigo-estudiante">U00057H</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <img class="hero-avatar" src="assets/foto-estudiante.png" alt="Foto del estudiante" />
+       <p class="hero-sub">Nayeli Quispe Tica</p>
+      <h2 class="hero-title">Bienvenido a mi Portafolio</h2>
+      <div class="hero-card">
+        <div class="hero-card-item">
+          <span class="hero-label">"Algoritmos y Estructuras de Datos"</span>
+          <span class="hero-value"> / "Desarrollo de Aplicaciones"</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Vista Principal: Tarjetas de Cursos -->
+  <main class="main-container" id="vista-home">
+    <div class="section-header-title">
+      <h3>Mis Cursos</h3>
+      <p></p>
+    </div>
+    <div class="courses-grid" id="courses-grid"></div>
+  </main>
+
+  <!-- Vista Detalle del Curso -->
+  <main class="main-container" id="vista-curso" style="display: none;">
+    <div class="curso-header-bar">
+      <button class="back-btn" id="btn-volver">← Volver a Cursos</button>
+      <h2 id="curso-titulo-detalle">Nombre del Curso</h2>
+    </div>
+    <div id="course-bodies"></div>
+  </main>
+
+  <footer class="note">
+    <div class="footer-card">
+      💡 <strong>Consejo:</strong> "Desarrollar sistemas no es solo hacer que el código funcione, es diseñar soluciones robustas, escalables y elegantes que transformen ideas complejas en experiencias simples."
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById("subtitulo-universidad").textContent = CONFIG.universidad;
+    document.getElementById("nombre-estudiante").textContent = CONFIG.nombreEstudiante;
+    document.getElementById("codigo-estudiante").textContent = CONFIG.codigoEstudiante;
+
+    let datos = cargarDatos();
+    let panelesAbiertos = {};
+
+    function calcularProgreso(cursoId) {
+      const curso = CURSOS.find(c => c.id === cursoId);
+      const semanas = datos[cursoId].semanas;
+      let hechas = 0;
+      for (let i = 1; i <= curso.totalSemanas; i++) {
+        if (semanas[i] && semanas[i].entregas && semanas[i].entregas.length > 0) hechas++;
+      }
+      return hechas;
+    }
+
+    function iconoParaEntrega(tipo) {
+      if (tipo === "enlace") return "🔗";
+      if (tipo && tipo.includes("image")) return "🖼️";
+      if (tipo && tipo.includes("pdf")) return "📄";
+      if (tipo && (tipo.includes("zip") || tipo.includes("compressed") || tipo.includes("rar"))) return "📦";
+      return "📁";
+    }
+
+    function abrirArchivoEnNuevaPestaña(url, nombre = "archivo") {
+      if (!url) return;
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function renderHome() {
+      const grid = document.getElementById("courses-grid");
+      grid.innerHTML = "";
+      CURSOS.forEach((curso) => {
+        const hechas = calcularProgreso(curso.id);
+        const total = curso.totalSemanas;
+        const pct = Math.round((hechas / total) * 100);
+        const card = document.createElement("div");
+        card.className = "course-card-menu";
+        card.innerHTML = `
+          <div class="course-meta-top">
+            <span class="code">${curso.codigo}</span>
+            <span class="badge-count">${hechas}/${total} semanas</span>
+          </div>
+          <h3>${curso.nombre}</h3>
+          <p>${curso.unidades} Unidades Académicas (${curso.semanasPorUnidad} semanas por unidad)</p>
+          <div class="progress-line"><i style="width:${pct}%"></i></div>
+          <button class="btn-ingresar">Ingresar al Curso <span>→</span></button>
+        `;
+        card.addEventListener("click", () => abrirCurso(curso.id));
+        grid.appendChild(card);
+      });
+      document.getElementById("vista-home").style.display = "block";
+      document.getElementById("vista-curso").style.display = "none";
+    }
+
+    function abrirCurso(cursoId) {
+      const curso = CURSOS.find(c => c.id === cursoId);
+      document.getElementById("curso-titulo-detalle").textContent = curso.nombre + " (" + curso.codigo + ")";
+      document.getElementById("vista-home").style.display = "none";
+      document.getElementById("vista-curso").style.display = "block";
+      renderCuerpo(cursoId);
+      window.scrollTo({ top: 250, behavior: "smooth" });
+    }
+
+    document.getElementById("btn-volver").addEventListener("click", () => {
+      renderHome();
+    });
+
+    function renderCuerpo(cursoId) {
+      const curso = CURSOS.find(c => c.id === cursoId);
+      const cont = document.getElementById("course-bodies");
+      cont.innerHTML = "";
+
+      for (let u = 1; u <= curso.unidades; u++) {
+        const unidadDiv = document.createElement("div");
+        unidadDiv.className = "unidad-section";
+        unidadDiv.innerHTML = `<h3 class="unidad-title">Unidad Didáctica ${u}</h3>`;
+
+        const grid = document.createElement("div");
+        grid.className = "week-grid";
+
+        const inicioSemana = (u - 1) * curso.semanasPorUnidad + 1;
+        const finSemana = u * curso.semanasPorUnidad;
+
+        for (let i = inicioSemana; i <= finSemana; i++) {
+          const semana = datos[curso.id].semanas[i];
+          const tieneEntregas = semana && semana.entregas && semana.entregas.length > 0;
+          const claveKey = curso.id + "-" + i;
+          const abierto = !!panelesAbiertos[claveKey];
+
+          const entregasHtml = tieneEntregas
+            ? semana.entregas.map((e, idx) => {
+                const urlParaAbrir = e.blobUrl || e.dataUrl;
+                return `
+              <li>
+                <span class="entry-icon">${iconoParaEntrega(e.tipoMime || e.tipo)}</span>
+                ${e.tipo === "enlace"
+                  ? `<a class="entry-link" href="${e.valor}" target="_blank" rel="noopener" title="${e.valor}">${e.valor}</a>`
+                  : `<a class="entry-link" href="${urlParaAbrir}" target="_blank" rel="noopener noreferrer" title="${e.nombre}">${e.nombre} (${e.tamanio})</a>`}
+                <div class="entry-actions">
+                  ${e.tipo !== "enlace" ? `<a class="action-btn view-file" href="${urlParaAbrir}" target="_blank" rel="noopener noreferrer" title="Abrir / Previsualizar">👁️ Ver</a>` : ""}
+                  ${e.tipo !== "enlace" ? `<a class="action-btn" href="${urlParaAbrir}" download="${e.nombre}" title="Descargar archivo">📥 Descargar</a>` : ""}
+                  <button class="entry-remove" data-curso="${curso.id}" data-semana="${i}" data-idx="${idx}" title="Eliminar archivo">❌</button>
+                </div>
+              </li>
+            `;
+              }).join("")
+            : `<li><span class="empty-note">Sin evidencias adjuntas todavía.</span></li>`;
+
+          const cardEl = document.createElement("div");
+          cardEl.className = "week-card" + (tieneEntregas ? " done" : "");
+          cardEl.innerHTML = `
+            <div class="week-card-head">
+              <span class="week-card-num">Semana ${i}</span>
+              <span class="status-pill">${tieneEntregas ? "✓ Entregado" : "• Pendiente"}</span>
+            </div>
+            <div class="week-tema-wrapper">
+              <p class="week-tema" contenteditable="true" spellcheck="false"
+                data-placeholder="Escribe el tema principal..."
+                data-curso="${curso.id}" data-semana="${i}">${semana.tema || ""}</p>
+            </div>
+            <button class="toggle-btn" data-key="${claveKey}">
+              ${tieneEntregas ? "📄 Gestionar evidencias" : "📤 Subir trabajo"}
+            </button>
+            <div class="week-panel" data-panel="${claveKey}" ${abierto ? "" : "hidden"}>
+              <div class="upload-row">
+                <input type="url" placeholder="Enlace web (https://...)"
+                  data-curso="${curso.id}" data-semana="${i}" class="input-enlace" />
+                <button class="add-btn btn-agregar-enlace" data-curso="${curso.id}" data-semana="${i}">Añadir</button>
+              </div>
+              <div class="upload-row">
+                <button class="file-btn btn-elegir-archivo" data-curso="${curso.id}" data-semana="${i}">
+                  📁 Seleccionar Archivos...
+                </button>
+                <input type="file" multiple accept="image/*,.pdf,.zip,.rar,.doc,.docx" style="display:none" class="input-archivo" data-curso="${curso.id}" data-semana="${i}" />
+              </div>
+              <ul class="entries">${entregasHtml}</ul>
+            </div>
+          `;
+          grid.appendChild(cardEl);
+        }
+        unidadDiv.appendChild(grid);
+        cont.appendChild(unidadDiv);
+      }
+      adjuntarEventos(cursoId);
+    }
+
+    function adjuntarEventos(cursoId) {
+      document.querySelectorAll(".toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.key;
+          panelesAbiertos[key] = !panelesAbiertos[key];
+          const panel = document.querySelector(`.week-panel[data-panel="${key}"]`);
+          if (panelesAbiertos[key]) {
+            panel.removeAttribute("hidden");
+          } else {
+            panel.setAttribute("hidden", "");
+          }
+        });
+      });
+
+      document.querySelectorAll(".week-tema").forEach((el) => {
+        el.addEventListener("blur", () => {
+          const curso = el.dataset.curso;
+          const semana = el.dataset.semana;
+          if (!datos[curso].semanas[semana]) datos[curso].semanas[semana] = { entregas: [] };
+          datos[curso].semanas[semana].tema = el.textContent.trim();
+          guardarDatos(datos);
+        });
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); el.blur(); }
+        });
+      });
+
+      document.querySelectorAll(".btn-agregar-enlace").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const curso = btn.dataset.curso;
+          const semana = btn.dataset.semana;
+          const input = document.querySelector(`.input-enlace[data-curso="${curso}"][data-semana="${semana}"]`);
+          const valor = input.value.trim();
+          if (!valor) return;
+          if (!datos[curso].semanas[semana]) datos[curso].semanas[semana] = { entregas: [] };
+          datos[curso].semanas[semana].entregas.push({ tipo: "enlace", valor });
+          guardarDatos(datos);
+          renderCuerpo(curso);
+        });
+      });
+
+      document.querySelectorAll(".btn-elegir-archivo").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const curso = btn.dataset.curso;
+          const semana = btn.dataset.semana;
+          document.querySelector(`.input-archivo[data-curso="${curso}"][data-semana="${semana}"]`).click();
+        });
+      });
+
+      document.querySelectorAll(".input-archivo").forEach((input) => {
+        input.addEventListener("change", async (e) => {
+          const curso = input.dataset.curso;
+          const semana = input.dataset.semana;
+          const files = e.target.files;
+          if (!files || files.length === 0) return;
+
+          try {
+            const nuevasEntregas = [];
+
+            for (const file of Array.from(files)) {
+              const entrega = await crearEntregaDesdeArchivo(file);
+              nuevasEntregas.push(entrega);
+            }
+
+            if (!datos[curso].semanas[semana]) datos[curso].semanas[semana] = { entregas: [] };
+            datos[curso].semanas[semana].entregas.push(...nuevasEntregas);
+            guardarDatos(datos);
+            renderCuerpo(curso);
+          } catch (error) {
+            console.error("Error al subir archivos:", error);
+            alert("Hubo un problema al subir los archivos. Intenta subir menos fotos o imágenes más pequeñas. Si usas Supabase, revisa la configuración y el bucket.");
+          } finally {
+            input.value = "";
+          }
+        });
+      });
+
+      document.querySelectorAll(".entry-remove").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const curso = btn.dataset.curso;
+          const semana = btn.dataset.semana;
+          const idx = Number(btn.dataset.idx);
+          datos[curso].semanas[semana].entregas.splice(idx, 1);
+          guardarDatos(datos);
+          renderCuerpo(curso);
+        });
+      });
+    }
+
+    renderHome();
+  </script>
+</body>
+</html>
