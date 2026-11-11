@@ -1,0 +1,1 @@
+Listas Circulares Simples (LCS): definición, representación y objetos
